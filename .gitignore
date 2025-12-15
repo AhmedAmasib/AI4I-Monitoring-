@@ -1,0 +1,16 @@
+# Data Files and Processed Artifacts 
+data/raw/ai4i2020.csv
+data/processed/*.parquet
+data/processed/*.npz
+models/*.pkl 
+
+# Python Environment & Temporary Files
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+env/
+
+#Cloud/Local Deployment and Logging
+*.log
+output/
