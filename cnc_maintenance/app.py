@@ -51,7 +51,7 @@ with st.expander(" How does this AI work? (Technical Explanation)"):
 
 
 
-[Image of a decision tree diagram for machine learning]
+
 
 
 st.markdown("---")
@@ -86,3 +86,4 @@ if uploaded_file:
         
         st.write("### 📊 Detailed Telemetry Report")
         st.dataframe(data.style.background_gradient(subset=["Risk Score"], cmap="Reds").format({"Risk Score": "{:.2%}"}))
+
