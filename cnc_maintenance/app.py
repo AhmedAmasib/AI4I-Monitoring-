@@ -2,8 +2,48 @@ import streamlit as st
 import pandas as pd
 import xgboost as xgb
 import os
+import requests
+from streamlit_lottie import st_lottie
 
-st.set_page_config(page_title="CNC Health Monitor", layout="wide")
+st.set_page_config(page_title="AI4I | CNC Predictive Systems", layout="wide", page_icon="⚙️")
+
+def load_lottieurl(url):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+lottie_industrial = load_lottieurl("https://lottie.host/7970d4c8-3796-419b-a010-09048a604297/4wO6m6Z7mG.json")
+
+st.markdown("""
+    <style>
+    .main {
+        background: linear-gradient(180deg, #f0f2f6 0%, #ffffff 100%);
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px;
+        height: 3em;
+        background-color: #1E3A8A;
+        color: white;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+        background-color: #2563EB;
+        color: white;
+    }
+    .metric-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(current_dir, "..", "models", "xgboost-model")
@@ -13,49 +53,49 @@ def load_model():
     bst.load_model(model_path)
     return bst
 
-st.sidebar.markdown("### By The Students")
-st.sidebar.write("**Ahmed Mohamed** - 231023208")
-st.sidebar.write("**Arda Saygin** - 231023224")
-st.sidebar.write("**Ahmed Salih** - 221023224")
+with st.sidebar:
+    st_lottie(lottie_industrial, height=150, key="sidebar_robot")
+    st.markdown("## 👥 Students")
+    st.info("**Ahmed Mohamed**\n231023208")
+    st.info("**Arda Saygin**\n231023224")
+    st.info("**Ahmed Salih**\n221023224")
+    st.markdown("---")
+    st.write("📍 **Project:** AI4I Monitoring")
+    st.write("🚀 **Status:** Live Deployment")
 
-st.sidebar.markdown("---")
-st.sidebar.write("Project: AI4I Monitoring System")
-st.sidebar.write("Model: XGBoost Classifier")
+head_col1, head_col2 = st.columns([2, 1])
 
-st.title("Industrial CNC Predictive Maintenance")
-st.write("Upload machine sensor data to predict failure risks in real-time.")
+with head_col1:
+    st.title("Industrial CNC Predictive Maintenance")
+    st.write("Welcome to the AI4I monitoring interface. This system uses real-time telemetry to predict machine downtime and technical failures before they occur.")
 
-uploaded_file = st.file_uploader("Choose a CSV or Parquet file", type=["csv", "parquet"])
+with head_col2:
+    st_lottie(lottie_industrial, height=200, key="main_robot")
 
-if uploaded_file is not None:
-    if uploaded_file.name.endswith(".csv"):
-        data = pd.read_csv(uploaded_file)
-    else:
-        data = pd.read_parquet(uploaded_file)
+st.markdown("---")
+
+uploaded_file = st.file_uploader("📂 Upload Machine Sensor Logs (CSV or Parquet)", type=["csv", "parquet"])
+
+if uploaded_file:
+    data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_parquet(uploaded_file)
     
-    st.write("### Raw Sensor Data")
-    st.dataframe(data.head())
+    st.success("File uploaded successfully! Ready for diagnostic.")
+    
+    if st.button("🚀 EXECUTE SYSTEM ANALYSIS"):
+        with st.spinner("Analyzing machine patterns..."):
+            model = load_model()
+            
+            clean_data = data.select_dtypes(include=['number'])
+            clean_data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in clean_data.columns]
+            
+            dmatrix = xgb.DMatrix(clean_data)
+            preds = model.predict(dmatrix)
+            
+            data["Risk Score"] = preds
+            data["Status"] = ["🔴 CRITICAL" if p > 0.5 else "🟢 HEALTHY" for p in preds]
+            
+            st.write("### 📊 Diagnostic Intelligence")
+            st.dataframe(data.style.background_gradient(subset=["Risk Score"], cmap="Reds"))
 
-    if st.button("Analyze Machine Health"):
-        model = load_model()
-        
-        data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in data.columns]
-        
-        predict_data = data.select_dtypes(include=['number'])
-        
-        dmatrix = xgb.DMatrix(predict_data)
-        predictions = model.predict(dmatrix)
-        
-        data["Failure_Risk"] = predictions
-        data["Status"] = ["⚠️ CRITICAL" if p > 0.5 else "✅ HEALTHY" for p in predictions]
-        
-        st.write("### Prediction Results")
-        st.dataframe(data.head(10))
-
-        csv = data.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download Analysis Report",
-            data=csv,
-            file_name="cnc_analysis_results.csv",
-            mime="text/csv",
-        )
+            csv = data.to_csv(index=False).encode('utf-8')
+            st.download_button("💾 Export Detailed Maintenance Report", data=csv, file_name="cnc_report.csv")
