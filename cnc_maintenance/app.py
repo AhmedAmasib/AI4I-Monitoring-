@@ -9,18 +9,29 @@ st.set_page_config(page_title="AI4I | CNC Monitoring", layout="wide", page_icon=
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    .stMetric {
+    
+    [data-testid="stMetric"] {
         background-color: #ffffff;
         padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
     }
+
+    [data-testid="stMetricValue"] {
+        color: #000000 !important;
+        font-size: 32px !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #333333 !important;
+        font-weight: bold !important;
+    }
+
     .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        height: 3em;
         background-color: #1E3A8A;
         color: white;
+        border-radius: 10px;
         font-weight: bold;
     }
     </style>
@@ -36,57 +47,53 @@ def load_model():
 
 with st.sidebar:
     st.markdown("# 🏭 SYSTEM")
-    st.markdown("---")
-    st.markdown("### 👥 Students")
-    st.info("**Ahmed Mohamed**\n231023208")
-    st.info("**Arda Saygin**\n231023224")
-    st.info("**Ahmed Salih**\n221023224")
+    st.info("**Ahmed Mohamed** (231023208)\n\n**Arda Saygin** (231023224)\n\n**Ahmed Salih** (221023224)")
     st.markdown("---")
     st.write("📊 **Project:** AI4I Monitoring")
-    st.write("🛠️ **Model:** XGBoost Classifier")
 
 st.title("Industrial CNC Predictive Maintenance")
-st.write("Analyze machine telemetry to prevent thermal and mechanical failures.")
+st.write("Real-time AI diagnostics for high-precision manufacturing.")
 
-uploaded_file = st.file_uploader("📂 Upload Sensor Data (CSV/Parquet)", type=["csv", "parquet"])
+with st.expander("ℹ️ Click here to see how this AI works"):
+    st.write("""
+        This system uses an **XGBoost (Extreme Gradient Boosting)** model to analyze sensor data. 
+        By monitoring variables like RPM, Torque, and Temperature, the AI can detect 
+        patterns that lead to **Heat Dissipation Failures** or **Tool Wear**.
+    """)
+
+st.markdown("---")
+
+uploaded_file = st.file_uploader("📂 Upload Sensor Data", type=["csv", "parquet"])
 
 if uploaded_file:
     data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_parquet(uploaded_file)
     
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Telemetry Rows", len(data))
-    col2.metric("Machine Status", "Connected")
-    col3.metric("Health Check", "Pending")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Telemetry Rows", len(data))
+    m2.metric("Machine Status", "Connected")
+    m3.metric("Health Check", "Ready")
 
     if st.button("🚀 EXECUTE DIAGNOSTIC SCAN"):
-        with st.status("Running ML Analysis...", expanded=True) as status:
-            model = load_model()
-            num_data = data.select_dtypes(include=['number'])
-            num_data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in num_data.columns]
-            
-            dmatrix = xgb.DMatrix(num_data)
-            preds = model.predict(dmatrix)
-            
-            data["Risk Score"] = preds
-            data["Status"] = ["🔴 CRITICAL" if p > 0.5 else "🟢 HEALTHY" for p in preds]
-            status.update(label="Analysis Complete!", state="complete", expanded=False)
+        model = load_model()
+        num_data = data.select_dtypes(include=['number'])
+        num_data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in num_data.columns]
         
-        st.write("### 📈 Risk Correlation Analysis")
+        preds = model.predict(xgb.DMatrix(num_data))
+        data["Risk Score"] = preds
+        data["Status"] = ["🔴 CRITICAL" if p > 0.5 else "🟢 HEALTHY" for p in preds]
         
-        # Check for Air temperature or Process temperature columns
-        temp_col = next((c for c in data.columns if 'temperature' in c.lower()), None)
-        
-        if temp_col:
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.scatter(data[temp_col], data["Risk Score"], alpha=0.5, c=data["Risk Score"], cmap='Reds')
-            ax.set_xlabel(f"Temperature ({temp_col})")
-            ax.set_ylabel("Failure Risk Score")
-            ax.set_title("Correlation: Temperature vs. Failure Risk")
-            st.pyplot(fig)
-        
-        
+        st.success("Analysis Complete!")
 
-        st.write("### 📊 Diagnostic Intelligence Report")
+        # Dynamic Paragraph Interaction
+        st.markdown("### 📝 Analysis Summary")
+        critical_count = (data["Status"] == "🔴 CRITICAL").sum()
+        
+        if critical_count > 0:
+            st.error(f"Attention: The AI has detected **{critical_count}** critical failure points in this dataset. Please review the highlighted rows below.")
+        else:
+            st.balloons()
+            st.success("The system is operating within normal parameters. No failures detected.")
+
         st.dataframe(
             data.style.background_gradient(subset=["Risk Score"], cmap="Reds")
                       .format({"Risk Score": "{:.2%}"}),
