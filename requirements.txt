@@ -1,0 +1,4 @@
+streamlit
+pandas
+xgboost==1.7.6
+pyarrow
