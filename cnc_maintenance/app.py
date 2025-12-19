@@ -12,7 +12,7 @@ st.markdown("""
     [data-testid="stMetricValue"] { color: #000000 !important; font-weight: bold !important; }
     [data-testid="stMetric"] { background-color: #ffffff; border: 1px solid #dee2e6; border-radius: 10px; }
     .stButton>button { background-color: #1E3A8A; color: white; border-radius: 10px; font-weight: bold; width: 100%; height: 3.5em; }
-    .logic-box { background-color: #eef2ff; padding: 20px; border-left: 5px solid #1E3A8A; border-radius: 5px; }
+    .logic-box { background-color: #f0f7ff; padding: 20px; border-left: 5px solid #1E3A8A; border-radius: 8px; color: #1e1e1e; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -30,29 +30,25 @@ with st.sidebar:
 
 st.title("Industrial CNC Predictive Maintenance")
 
-# --- NEW SECTION: HOW THE AI WORKS ---
-with st.expander(" How does this AI work? (Technical Explanation)"):
+with st.expander(" How the AI Works: Decision Tree Logic"):
     st.markdown('<div class="logic-box">', unsafe_allow_html=True)
     st.write("""
-    This platform uses an **XGBoost (eXtreme Gradient Boosting)** algorithm. 
-    Unlike a simple "if/then" rule, this AI works by building hundreds of small **Decision Trees**.
+    The system uses **Gradient Boosted Decision Trees**. 
+    Think of it as a flowchart where the AI asks specific questions about your machine:
     
-    1. **Learning:** Each tree looks at a small piece of the data (like Torque vs. RPM).
-    2. **Correcting:** If the first tree makes a mistake, the second tree focuses specifically on that mistake.
-    3. **Summation:** When you upload data, the AI runs your sensors through all these trees and calculates a **Probability Score**.
+    1. **Splitting:** It asks "Is the Torque higher than 50Nm?" If yes, it follows one path; if no, another.
+    2. **Ensemble:** It doesn't rely on one tree. It uses hundreds of trees that "vote" on whether a failure is likely.
+    3. **Optimization:** Every new tree learns from the mistakes of the previous one, making the prediction highly accurate.
     """)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    st.write("###  The 3 Key Variables the AI Monitors:")
-    col_a, col_b, col_c = st.columns(3)
-    col_a.write("**1. Air Temperature:** Detects if the cooling system is failing (HDF).")
-    col_b.write("**2. Torque:** High torque spikes often mean the tool is stuck or broken.")
-    col_c.write("**3. Tool Wear:** Monitors the 'minutes of use' to predict blade failure (TWF).")
-
-
-
-
-
+    
+    
+    st.write("###  Predictive Indicators:")
+    c1, c2, c3 = st.columns(3)
+    c1.write("**Thermal Stress:** High Air/Process temperature delta.")
+    c2.write("**Mechanical Strain:** Unexpected torque spikes.")
+    c3.write("**Usage Lifecycle:** Total tool wear minutes.")
 
 st.markdown("---")
 
@@ -61,7 +57,7 @@ uploaded_file = st.file_uploader("📂 Upload Sensor Data", type=["csv", "parque
 if uploaded_file:
     data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_parquet(uploaded_file)
     
-    if st.button("EXECUTE DIAGNOSTIC SCAN"):
+    if st.button(" EXECUTE DIAGNOSTIC SCAN"):
         model = load_model()
         num_data = data.select_dtypes(include=['number'])
         num_data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in num_data.columns]
@@ -70,20 +66,30 @@ if uploaded_file:
         data["Risk Score"] = preds
         data["Status"] = ["🔴 CRITICAL" if p > 0.5 else "🟢 HEALTHY" for p in preds]
 
-        
         st.markdown("### 🕵️‍♂️ A fun way to discover the failure!")
+        st.write("Point your mouse at the dots to see the hidden telemetry data.")
+        
         temp_col = next((c for c in data.columns if 'temperature' in c.lower()), data.columns[0])
         fig = px.scatter(data, x=temp_col, y="Risk Score", color="Status", 
                          color_discrete_map={"🔴 CRITICAL": "red", "🟢 HEALTHY": "green"},
                          hover_data=data.columns, template="plotly_white")
+        fig.update_traces(marker=dict(size=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        
-        st.markdown("###  Professional Analysis Summary")
+        st.markdown("###  Analysis Summary")
         critical_cases = (data["Status"] == "🔴 CRITICAL").sum()
-        st.info(f"The XGBoost model identified {critical_cases} critical risks. Hover over the chart above to see the sensor values for each specific incident.")
+        st.info(f"The model detected {critical_cases} critical machine states. Review the table below for details.")
 
-        
-        st.write("### 📊 Detailed Telemetry Report")
+        st.write("###  Detailed Telemetry Report")
         st.dataframe(data.style.background_gradient(subset=["Risk Score"], cmap="Reds").format({"Risk Score": "{:.2%}"}))
 
+        # RESTORED DOWNLOAD BUTTON
+        st.markdown("---")
+        csv = data.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label=" Download Full Diagnostic Report",
+            data=csv,
+            file_name="cnc_analysis_results.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
