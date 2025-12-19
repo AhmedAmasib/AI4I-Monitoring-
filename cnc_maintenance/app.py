@@ -5,45 +5,44 @@ import os
 import requests
 from streamlit_lottie import st_lottie
 
-st.set_page_config(page_title="AI4I | CNC Predictive Systems", layout="wide", page_icon="⚙️")
-
-def load_lottieurl(url):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
-
-lottie_industrial = load_lottieurl("https://lottie.host/7970d4c8-3796-419b-a010-09048a604297/4wO6m6Z7mG.json")
+st.set_page_config(page_title="AI4I | CNC Monitoring", layout="wide", page_icon="⚙️")
 
 st.markdown("""
     <style>
     .main {
-        background: linear-gradient(180deg, #f0f2f6 0%, #ffffff 100%);
+        background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
     }
     .stButton>button {
         width: 100%;
-        border-radius: 20px;
-        height: 3em;
+        border-radius: 12px;
+        height: 3.5em;
         background-color: #1E3A8A;
         color: white;
         font-weight: bold;
-        transition: all 0.3s ease;
+        border: none;
     }
     .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
         background-color: #2563EB;
         color: white;
+        border: none;
     }
-    .metric-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        border: 1px solid #e5e7eb;
+    [data-testid="stMetricValue"] {
+        font-size: 28px;
     }
     </style>
     """, unsafe_allow_html=True)
+
+def load_lottieurl(url):
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except:
+        return None
+
+lottie_url = "https://lottie.host/7970d4c8-3796-419b-a010-09048a604297/4wO6m6Z7mG.json"
+lottie_json = load_lottieurl(lottie_url)
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(current_dir, "..", "models", "xgboost-model")
@@ -54,48 +53,71 @@ def load_model():
     return bst
 
 with st.sidebar:
-    st_lottie(lottie_industrial, height=150, key="sidebar_robot")
-    st.markdown("## 👥 Students")
+    if lottie_json:
+        st_lottie(lottie_json, height=120, key="side_logo")
+    else:
+        st.title("⚙️")
+        
+    st.markdown("### 👥 Students")
     st.info("**Ahmed Mohamed**\n231023208")
     st.info("**Arda Saygin**\n231023224")
     st.info("**Ahmed Salih**\n221023224")
+    
     st.markdown("---")
-    st.write("📍 **Project:** AI4I Monitoring")
-    st.write("🚀 **Status:** Live Deployment")
+    st.write("📊 **Project:** AI4I Monitoring")
+    st.write("🛠️ **Model:** XGBoost v1.7.6")
 
-head_col1, head_col2 = st.columns([2, 1])
+header_left, header_right = st.columns([3, 1])
 
-with head_col1:
+with header_left:
     st.title("Industrial CNC Predictive Maintenance")
-    st.write("Welcome to the AI4I monitoring interface. This system uses real-time telemetry to predict machine downtime and technical failures before they occur.")
+    st.write("This dashboard utilizes Machine Learning to process sensor telemetry and predict potential equipment failures in real-time.")
 
-with head_col2:
-    st_lottie(lottie_industrial, height=200, key="main_robot")
+with header_right:
+    if lottie_json:
+        st_lottie(lottie_json, height=180, key="main_anim")
 
 st.markdown("---")
 
-uploaded_file = st.file_uploader("📂 Upload Machine Sensor Logs (CSV or Parquet)", type=["csv", "parquet"])
+uploaded_file = st.file_uploader("📂 Upload CNC Sensor Data (CSV or Parquet)", type=["csv", "parquet"])
 
 if uploaded_file:
-    data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_parquet(uploaded_file)
+    if uploaded_file.name.endswith(".csv"):
+        data = pd.read_csv(uploaded_file)
+    else:
+        data = pd.read_parquet(uploaded_file)
     
-    st.success("File uploaded successfully! Ready for diagnostic.")
-    
-    if st.button("🚀 EXECUTE SYSTEM ANALYSIS"):
-        with st.spinner("Analyzing machine patterns..."):
-            model = load_model()
-            
-            clean_data = data.select_dtypes(include=['number'])
-            clean_data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in clean_data.columns]
-            
-            dmatrix = xgb.DMatrix(clean_data)
-            preds = model.predict(dmatrix)
-            
-            data["Risk Score"] = preds
-            data["Status"] = ["🔴 CRITICAL" if p > 0.5 else "🟢 HEALTHY" for p in preds]
-            
-            st.write("### 📊 Diagnostic Intelligence")
-            st.dataframe(data.style.background_gradient(subset=["Risk Score"], cmap="Reds"))
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Rows", len(data))
+    col2.metric("Features Detected", len(data.columns))
+    col3.metric("System Status", "Ready", "Online")
 
-            csv = data.to_csv(index=False).encode('utf-8')
-            st.download_button("💾 Export Detailed Maintenance Report", data=csv, file_name="cnc_report.csv")
+    if st.button("🚀 EXECUTE SYSTEM ANALYSIS"):
+        with st.spinner("Analyzing patterns..."):
+            try:
+                model = load_model()
+                
+                predict_data = data.select_dtypes(include=['number'])
+                predict_data.columns = [str(c).replace("[", "").replace("]", "").replace("<", "") for c in predict_data.columns]
+                
+                dmatrix = xgb.DMatrix(predict_data)
+                predictions = model.predict(dmatrix)
+                
+                data["Risk Score"] = predictions
+                data["Status"] = ["🔴 CRITICAL" if p > 0.5 else "🟢 HEALTHY" for p in predictions]
+                
+                st.write("### 🔍 Failure Diagnostic Results")
+                st.dataframe(
+                    data.style.background_gradient(subset=["Risk Score"], cmap="Reds")
+                              .format({"Risk Score": "{:.2%}"})
+                )
+
+                csv = data.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="💾 Download Final Report",
+                    data=csv,
+                    file_name="cnc_analysis_results.csv",
+                    mime="text/csv",
+                )
+            except Exception as e:
+                st.error(f"Error during analysis: {e}")
