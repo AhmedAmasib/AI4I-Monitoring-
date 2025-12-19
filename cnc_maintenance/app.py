@@ -6,12 +6,21 @@ import os
 st.set_page_config(page_title="CNC Health Monitor", layout="wide")
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(os.path.dirname(current_dir), "models", "xgboost-model")
+model_path = os.path.join(current_dir, "..", "models", "xgboost-model")
 
 def load_model():
     bst = xgb.Booster()
     bst.load_model(model_path)
     return bst
+
+st.sidebar.markdown("### By The Students")
+st.sidebar.write("**Ahmed Mohamed** - 231023208")
+st.sidebar.write("**Arda Saygin** - 231023224")
+st.sidebar.write("**Ahmed Salih** - 221023224")
+
+st.sidebar.markdown("---")
+st.sidebar.write("Project: AI4I Monitoring System")
+st.sidebar.write("Model: XGBoost Classifier")
 
 st.title("Industrial CNC Predictive Maintenance")
 st.write("Upload machine sensor data to predict failure risks in real-time.")
